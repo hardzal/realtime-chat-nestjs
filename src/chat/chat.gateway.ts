@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { InjectModel } from '@nestjs/mongoose';
 import {
+  ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -11,18 +11,16 @@ import {
   WebSocketServer,
   WsException,
 } from '@nestjs/websockets';
-import { isValidObjectId, Model } from 'mongoose';
-import { Server } from 'socket.io';
-import { Message } from '../interfaces/message.interface';
+import { isValidObjectId } from 'mongoose';
+import { Server, Socket } from 'socket.io';
+import { ChatService } from './chat.service';
 
 @WebSocketGateway(3010, { cors: true, namespace: '/chat' })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  constructor(
-    @InjectModel('Message') private readonly messageModel: Model<Message>,
-  ) {}
+  constructor(private chatService: ChatService) {}
 
   handleConnection(client: any) {
     console.log(`Client connected: ${client.id}`);
@@ -50,9 +48,47 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       throw new WsException('Invalid roomId or senderId format');
     }
 
-    const message = new this.messageModel(data);
-    await message.save();
+    const message = await this.chatService.saveMessage(data);
 
     this.server.to(data.roomId).emit('message', message);
+  }
+
+  @SubscribeMessage('getMessages')
+  async handleGetMessages(
+    @MessageBody() roomId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    const messages = await this.chatService.getMessagesByRoom(roomId);
+    client.emit('messageHistory', messages.reverse());
+  }
+
+  @SubscribeMessage('joinRoom')
+  async handleJoinRoom(
+    @MessageBody() roomId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    await client.join(roomId);
+    client.emit('joinedRoom', roomId);
+  }
+
+  @SubscribeMessage('startPrivateChat')
+  async handlePrivateChat(
+    @MessageBody() data: { userA: string; userB: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const room = await this.chatService.findOrCreatePrivateRoom(
+      data.userA,
+      data.userB,
+    );
+    client.join((room._id as any).toString());
+    client.emit('joinedPrivateRoom', room._id);
+  }
+
+  @SubscribeMessage('privateMessage')
+  async handlePrivateMessage(
+    @MessageBody() data: { roomId: string; senderId: string; content: string },
+  ) {
+    const saved = await this.chatService.saveMessage(data);
+    this.server.to(data.roomId).emit('message', saved);
   }
 }

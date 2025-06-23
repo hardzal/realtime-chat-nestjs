@@ -4,6 +4,7 @@ import { RoomSchema } from '../schema/room.schema';
 import { Module } from '@nestjs/common';
 import { UserSchema } from '../schema/user.schema';
 import { ChatGateway } from './chat.gateway';
+import { ChatService } from './chat.service';
 
 @Module({
   imports: [
@@ -17,6 +18,6 @@ import { ChatGateway } from './chat.gateway';
       { name: 'Message', schema: MessageSchema },
     ]),
   ],
-  providers: [ChatGateway],
+  providers: [ChatGateway, ChatService],
 })
 export class ChatModule {}
