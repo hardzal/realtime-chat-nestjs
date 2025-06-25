@@ -22,24 +22,29 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   constructor(private chatService: ChatService) {}
 
+  // lifecylce websocket: ketika pertama kali connect
   handleConnection(client: any) {
     console.log(`Client connected: ${client.id}`);
 
+    // mengirim ke semua client yang bukan user client(sekarang)
     client.broadcast.emit('user-joined', {
       message: `User joined the chat: ${client.id}`,
       clientId: client.id,
     });
   }
 
+  // lifecycle websocket: ketika sudah disconnect
   handleDisconnect(client: any) {
     console.log(`Client disconnected: ${client.id}`);
 
+    // mengirim ke semua client
     this.server.emit('user-left', {
       message: `User left the chat: ${client.id}`,
       clientsId: client.id,
     });
   }
 
+  // socket untuk mengirim message
   @SubscribeMessage('message')
   async handleMessage(
     @MessageBody() data: { roomId: string; senderId: string; content: string },
@@ -53,6 +58,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(data.roomId).emit('message', message);
   }
 
+  // socket untuk mendapatkan messages
   @SubscribeMessage('getMessages')
   async handleGetMessages(
     @MessageBody() roomId: string,
