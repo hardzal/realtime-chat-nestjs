@@ -25,16 +25,15 @@ export class ChatService {
   }
 
   async findOrCreatePrivateRoom(userA: string, userB: string): Promise<Room> {
-    const existing = await this.roomModel.findOne({
-      isPrivate: true,
-      members: { $all: [userA, userB], $size: 2 },
+    const participants = [userA, userB].sort();
+    const room = await this.roomModel.findOne({
+      participants,
     });
 
-    if (existing) {
-      return existing;
+    if (!room) {
+      room = await this.roomModel.create({ participants });
     }
 
-    const newRoom = new this.roomModel({ members: [userA, userB] });
-    return newRoom.save();
+    return room.id;
   }
 }

@@ -18,9 +18,9 @@ import { ChatService } from './chat.service';
 @WebSocketGateway(3010, { cors: true, namespace: '/chat' })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
-  server: Server;
+  private server: Server;
 
-  constructor(private chatService: ChatService) {}
+  constructor(private readonly chatService: ChatService) {}
 
   // lifecylce websocket: ketika pertama kali connect
   handleConnection(client: any) {
