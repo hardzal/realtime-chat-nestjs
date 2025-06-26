@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   ConnectedSocket,
   MessageBody,
@@ -14,6 +11,7 @@ import {
 import { isValidObjectId } from 'mongoose';
 import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
+import { CreateChatDTO } from './dto/create-chat.dto';
 
 @WebSocketGateway(3010, { cors: true, namespace: '/chat' })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -68,6 +66,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.emit('messageHistory', messages.reverse());
   }
 
+  @SubscribeMessage('createMessage')
+  async create(
+    @ConnectedSocket() client,
+    @MessageBody() createChatDTO: CreateChatDTO,
+  ) {
+    const senderId: string = client.handshake.user._id.toString();
+    const chat = await this.chatService.create(senderId, createChatDTO);
+
+    this.server.emit('newChat', chat);
+  }
+
   @SubscribeMessage('joinRoom')
   async handleJoinRoom(
     @MessageBody() roomId: string,
@@ -75,19 +84,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     await client.join(roomId);
     client.emit('joinedRoom', roomId);
-  }
-
-  @SubscribeMessage('startPrivateChat')
-  async handlePrivateChat(
-    @MessageBody() data: { userA: string; userB: string },
-    @ConnectedSocket() client: Socket,
-  ) {
-    const room = await this.chatService.findOrCreatePrivateRoom(
-      data.userA,
-      data.userB,
-    );
-    client.join((room._id as any).toString());
-    client.emit('joinedPrivateRoom', room._id);
   }
 
   @SubscribeMessage('privateMessage')

@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Message } from '../interfaces/message.interface';
-import { Room } from '../interfaces/room.interface';
+import { Message } from './interfaces/message.interface';
+import { CreateChatDTO } from './dto/create-chat.dto';
+import { GetChatDTO } from './dto/get-chat.dto';
 
 @Injectable()
 export class ChatService {
   constructor(
     @InjectModel('Message') private readonly messageModel: Model<Message>,
-    @InjectModel('Room') private readonly roomModel: Model<Room>,
   ) {}
 
   async saveMessage(data: Partial<Message>): Promise<Message> {
@@ -19,21 +19,32 @@ export class ChatService {
   async getMessagesByRoom(roomId: string): Promise<Message[]> {
     return this.messageModel
       .find({ roomId })
-      .sort({ timestamp: -1 })
+      .sort({ createdAt: -1 })
       .limit(50)
       .exec();
   }
 
-  async findOrCreatePrivateRoom(userA: string, userB: string): Promise<Room> {
-    const participants = [userA, userB].sort();
-    const room = await this.roomModel.findOne({
-      participants,
+  async create(senderId: string, createChatDto: CreateChatDTO) {
+    const createChat = new this.messageModel({
+      ...createChatDto,
+      senderId: senderId,
     });
 
-    if (!room) {
-      room = await this.roomModel.create({ participants });
+    return createChat.save();
+  }
+
+  async findAll(roomId: string, getChatDTO: GetChatDTO) {
+    const query = {
+      roomId: roomId,
+    };
+
+    if (getChatDTO.last_id) {
+      query['_id'] = { $it: getChatDTO.last_id };
     }
 
-    return room.id;
+    return this.messageModel
+      .find(query)
+      .sort({ createdAt: -1 })
+      .limit(getChatDTO.limit);
   }
 }
