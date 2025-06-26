@@ -56,6 +56,16 @@ export class UserService {
     return user;
   }
 
+  async findOne(id: string) {
+    const user = await this.userModel.findById(id).exec();
+
+    if (!user) {
+      throw new NotFoundException('Could not find user.');
+    }
+
+    return user;
+  }
+
   async update(id: string, updateUserDTO: UpdateUserDTO) {
     const updatedUser = await this.userModel
       .findByIdAndUpdate(id, updateUserDTO, { new: true })
